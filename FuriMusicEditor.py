@@ -315,6 +315,7 @@ class Editor(tk.Tk):
         self.intro_start = tk.StringVar(value="")
         self.intro_end = tk.StringVar(value="")
         self.fade_in = tk.StringVar(value="2")
+        self.cue_source = tk.StringVar()
 
         self._build_ui()
         self._populate_triggers()
@@ -340,10 +341,12 @@ class Editor(tk.Tk):
                                "so you can react to specific moments. Start/End choose the piece of the source song; "
                                "BPM and Beats/bar let transitions land on rhythm; Loop repeats a phase; Transition chooses when the next cue takes over. "
                                "Fill in Intro start/end to play that part exactly once with a fade-in when the fight starts, "
-                               "then the rest of the song (from Intro end onward) loops forever.")
+                               "then the rest of the song (from Intro end onward) loops forever. "
+                               "Each cue can use its own song: fill in 'Source track (optional)' in the cue area, "
+                               "so the fight can switch between different songs at different moments.")
         guide.grid(row=1, column=0, sticky="ew", padx=14, pady=(0, 8))
 
-        edit = ttk.LabelFrame(self, text="Cue (one source-track section per game event or phase)", padding=10)
+        edit = ttk.LabelFrame(self, text="Cue (one song section per game event or phase)", padding=10)
         edit.grid(row=2, column=0, sticky="ew", padx=10)
         for column in range(8):
             edit.columnconfigure(column, weight=1 if column in (1, 3) else 0)
@@ -353,7 +356,10 @@ class Editor(tk.Tk):
         self._labelled_entry(edit, 0, "End (s)", self.end, column=6)
         self._labelled_entry(edit, 2, "BPM", self.bpm)
         self._labelled_entry(edit, 2, "Beats/bar", self.beats, column=2)
-        ttk.Checkbutton(edit, text="Loop this exported cue", variable=self.loop).grid(row=3, column=4, columnspan=2, sticky="w", pady=(0, 4))
+        ttk.Checkbutton(edit, text="Loop this exported cue", variable=self.loop).grid(row=3, column=4, columnspan=1, sticky="w", pady=(0, 4))
+        ttk.Label(edit, text="Source track (optional)").grid(row=3, column=0, sticky="w", padx=(0, 6), pady=(0, 4))
+        ttk.Entry(edit, textvariable=self.cue_source).grid(row=3, column=1, columnspan=3, sticky="ew", padx=(0, 12), pady=(0, 4))
+        ttk.Button(edit, text="Browse", command=self._pick_cue_source).grid(row=3, column=5, sticky="w", pady=(0, 4))
         ttk.Label(edit, text="Transition (when it switches)").grid(row=2, column=6, sticky="w")
         ttk.Combobox(edit, textvariable=self.transition, state="readonly", values=["immediate", "next_beat", "next_bar"]).grid(row=3, column=6, columnspan=2, sticky="ew", pady=(0, 4))
         self._labelled_entry(edit, 4, "Intro start (s)", self.intro_start)
@@ -372,10 +378,10 @@ class Editor(tk.Tk):
         table_frame.grid(row=3, column=0, sticky="nsew")
         self.rowconfigure(3, weight=1)
         self.columnconfigure(0, weight=1)
-        columns = ("trigger", "cue", "start", "end", "loop", "bpm", "transition", "intro", "orig")
+        columns = ("trigger", "cue", "source", "start", "end", "loop", "bpm", "transition", "intro", "orig")
         self.table = ttk.Treeview(table_frame, columns=columns, show="headings", selectmode="browse")
         for column, heading, width in [
-            ("trigger", "Game trigger", 260), ("cue", "Cue", 130), ("start", "Start", 60), ("end", "End", 60),
+            ("trigger", "Game trigger", 260), ("cue", "Cue", 130), ("source", "Source", 90), ("start", "Start", 60), ("end", "End", 60),
             ("loop", "Loop", 50), ("bpm", "BPM", 50), ("transition", "Transition", 90), ("intro", "Intro", 80), ("orig", "Orig", 55),
         ]:
             self.table.heading(column, text=heading)
@@ -468,6 +474,11 @@ class Editor(tk.Tk):
         selected = filedialog.askopenfilename(filetypes=[("Audio", "*.mp3 *.ogg *.wav *.aif *.aiff"), ("All files", "*.*")])
         if selected:
             self.source_file.set(selected)
+
+    def _pick_cue_source(self):
+        selected = filedialog.askopenfilename(filetypes=[("Audio", "*.mp3 *.ogg *.wav *.aif *.aiff"), ("All files", "*.*")])
+        if selected:
+            self.cue_source.set(selected)
 
     def _pick_ffmpeg(self):
         selected = filedialog.askopenfilename(filetypes=[("ffmpeg executable", "ffmpeg.exe"), ("All files", "*.*")])
@@ -587,6 +598,7 @@ class Editor(tk.Tk):
             "trigger": self.trigger.get(), "cue": safe_name(self.cue_id.get()), "start": start, "end": end,
             "loop": self.loop.get(), "bpm": bpm, "beats_per_bar": beats, "transition": self.transition.get(),
             "block_original": self.block_original.get(),
+            "source": self.cue_source.get().strip(),
             "intro": intro,
         }
 
@@ -630,6 +642,7 @@ class Editor(tk.Tk):
         self.bpm.set(str(cue["bpm"])); self.beats.set(str(cue["beats_per_bar"]))
         self.loop.set(cue["loop"]); self.transition.set(cue["transition"])
         self.block_original.set(cue.get("block_original", True))
+        self.cue_source.set(cue.get("source", ""))
         intro = cue.get("intro")
         if intro:
             self.intro_start.set(str(intro.get("start", 0))); self.intro_end.set(str(intro.get("end", 0))); self.fade_in.set(str(intro.get("fade", 0)))
@@ -639,13 +652,13 @@ class Editor(tk.Tk):
     def _refresh_table(self):
         self.table.delete(*self.table.get_children())
         for index, cue in enumerate(self.cues):
-            self.table.insert("", "end", iid=str(index), values=(cue["trigger"], cue["cue"], cue["start"], cue["end"], "yes" if cue["loop"] else "no", cue["bpm"], cue["transition"], "once->loop" if cue.get("intro") else "no", "stop" if cue.get("block_original", True) else "keep"))
+            self.table.insert("", "end", iid=str(index), values=(cue["trigger"], cue["cue"], Path(cue.get("source", "")).name if cue.get("source") else "main", cue["start"], cue["end"], "yes" if cue["loop"] else "no", cue["bpm"], cue["transition"], "once->loop" if cue.get("intro") else "no", "stop" if cue.get("block_original", True) else "keep"))
 
     def _project_data(self):
         return {"version": 1, "name": self.pack_name.get(), "source_file": self.source_file.get(), "boss": self.boss.get(), "cues": self.cues}
 
     def _new_project(self):
-        self.project_path = None; self.cues = []; self.pack_name.set("My Furi Music Pack"); self.source_file.set(""); self.intro_start.set(""); self.intro_end.set(""); self._refresh_table()
+        self.project_path = None; self.cues = []; self.pack_name.set("My Furi Music Pack"); self.source_file.set(""); self.cue_source.set(""); self.intro_start.set(""); self.intro_end.set(""); self._refresh_table()
 
     def _open_project(self):
         selected = filedialog.askopenfilename(filetypes=[("Furi music project", "*.furi-music.json"), ("JSON", "*.json")])
@@ -672,10 +685,7 @@ class Editor(tk.Tk):
     def _build_pack(self):
         if not self.cues:
             messagebox.showerror("No cues", "Add at least one cue."); return
-        source = Path(self.source_file.get())
         ffmpeg = self.ffmpeg.get()
-        if not source.is_file():
-            messagebox.showerror("Missing source track", "Choose an existing source MP3, Ogg, WAV, or AIFF file."); return
         if not (Path(ffmpeg).is_file() or shutil.which(ffmpeg)):
             messagebox.showerror("ffmpeg not found", "Install ffmpeg or select its executable. The editor uses it to make precise standalone WAV cues."); return
         destination = filedialog.askdirectory(title="Choose the BepInEx packs folder (or any empty destination)")
@@ -689,13 +699,16 @@ class Editor(tk.Tk):
             music_dir = pack_dir / "music"; music_dir.mkdir(parents=True, exist_ok=True)
             manifest_cues, bindings = [], []
             for cue in self.cues:
+                cue_source = Path(cue.get("source") or self.source_file.get())
+                if not cue_source.is_file():
+                    raise RuntimeError("Source track not found for cue '" + cue["cue"] + "': " + str(cue_source))
                 output = music_dir / (cue["cue"] + ".wav")
                 intro = cue.get("intro")
                 if intro:
                     start, duration = intro["end"], None
                 else:
                     start, duration = cue["start"], cue["end"] - cue["start"]
-                command = [ffmpeg, "-y", "-i", str(source), "-ss", str(start)]
+                command = [ffmpeg, "-y", "-i", str(cue_source), "-ss", str(start)]
                 if duration is not None:
                     command += ["-t", str(duration)]
                 command += ["-vn", "-c:a", "pcm_s16le", str(output)]
@@ -705,7 +718,7 @@ class Editor(tk.Tk):
                 manifest_cue = {"id": cue["cue"], "file": "music/" + output.name, "loop": cue["loop"], "start_seconds": 0.0, "bpm": cue["bpm"], "beats_per_bar": cue["beats_per_bar"], "gain_db": 0.0}
                 if intro:
                     intro_out = music_dir / (cue["cue"] + ".intro.wav")
-                    command = [ffmpeg, "-y", "-i", str(source), "-ss", str(intro["start"]), "-t", str(intro["end"] - intro["start"]), "-vn", "-c:a", "pcm_s16le"]
+                    command = [ffmpeg, "-y", "-i", str(cue_source), "-ss", str(intro["start"]), "-t", str(intro["end"] - intro["start"]), "-vn", "-c:a", "pcm_s16le"]
                     if intro["fade"] > 0:
                         command += ["-af", "afade=t=in:st=0:d=" + str(intro["fade"])]
                     command.append(str(intro_out))
