@@ -6,6 +6,22 @@ This document explains how to use the pack maker.
 
 NOTE: The example pack only changes the music of the first fight against The Chain.
 
+## Download the Mod
+
+Get the latest release here:
+
+https://github.com/LeonKraim/Furi-Custom-Music-Mod/releases
+
+Each release has 3 files:
+
+- FuriMusicMod.zip. The mod itself.
+  The install guide is below.
+- FuriMusicPackMaker.exe. The pack maker.
+  It has ffmpeg inside, so no separate ffmpeg install is needed.
+- FuriMusicMod-Source.zip. The source code of the mod and the pack maker.
+  The source code is free software.
+  Read the file LICENSE.md for the terms.
+
 ## What You Need
 
 - The pack maker. It is one EXE file.
