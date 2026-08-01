@@ -297,7 +297,9 @@ class Editor(tk.Tk):
         self.title("Furi Dynamic Music Pack Editor")
         self.minsize(1100, 760)
         self.project_path = None
-        self.cues = []
+        self.fights = [{"boss": next(iter(BOSSES)), "cues": []}]
+        self._active_fight = 0
+        self.cues = self.fights[0]["cues"]
         self._bank_cache = {}
         self._trigger_docs = {}
 
@@ -324,6 +326,7 @@ class Editor(tk.Tk):
 
         self._build_ui()
         self._populate_triggers()
+        self._refresh_fight_box()
 
     def _build_ui(self):
         top = ttk.Frame(self, padding=(16, 14))
@@ -337,9 +340,15 @@ class Editor(tk.Tk):
         boss_box.bind("<<ComboboxSelected>>", lambda _event: self._populate_triggers())
         self._entry(top, 1, "ffmpeg path", self.ffmpeg, button=self._pick_ffmpeg, column=2)
         self._entry(top, 2, "Game folder (auto-detected)", self.game_root, button=self._pick_game_root, column=0)
+        ttk.Label(top, text="Fight").grid(row=3, column=0, sticky="w", padx=(0, 10), pady=8)
+        self.fight_box = ttk.Combobox(top, state="readonly")
+        self.fight_box.grid(row=3, column=1, sticky="ew", pady=8)
+        self.fight_box.bind("<<ComboboxSelected>>", self._select_fight)
+        ttk.Button(top, text="Add fight", command=self._add_fight).grid(row=3, column=2, padx=(8, 0), pady=8)
+        ttk.Button(top, text="Remove fight", command=self._remove_fight).grid(row=3, column=3, padx=(8, 0), pady=8)
 
         guide = ttk.Label(self, justify="left", anchor="w", wraplength=980,
-                          text="Pick a boss, then add one cue for each fight moment. "
+                          text="A pack holds one or more boss fights. Pick a fight and its boss, then add one cue for each fight moment. "
                                "Each cue plays its own song, set in 'Source track'. "
                                "Open 'Trigger reference / help' for what each field and trigger means.")
         guide.grid(row=1, column=0, sticky="ew", padx=18, pady=(0, 14))
@@ -369,7 +378,7 @@ class Editor(tk.Tk):
         ttk.Checkbutton(edit, text="Block original sound", variable=self.block_original).grid(row=7, column=6, columnspan=2, sticky="w", pady=(0, 8))
         buttons = ttk.Frame(edit)
         ttk.Label(edit, text="Intro start/end play that part once (with a fade-in) when the fight starts, then the rest of the song (from Intro end onward) loops forever. "
-                             "Leave them empty to loop only the Start/End section. 'Requires cue' fires this cue only after the chosen cue already played this fight. "
+                             "Leave them empty to loop only the Start/End section. 'Requires trigger' fires this cue only after that trigger already fired in this fight. "
                              "Tip: use next_bar when phase music shares the same tempo; use immediate for intros or endings.", foreground="#555555").grid(row=8, column=0, columnspan=8, sticky="w", pady=(6, 0))
         buttons.grid(row=9, column=0, columnspan=8, sticky="e", pady=(10, 0))
         ttk.Button(buttons, text="Add cue", command=self._add_cue).pack(side="left", padx=4)
@@ -619,12 +628,13 @@ class Editor(tk.Tk):
             cue = self._read_fields()
         except ValueError as error:
             messagebox.showerror("Invalid cue", str(error)); return
-        if any(item["trigger"] == cue["trigger"] for item in self.cues):
+        all_cues = [item for fight in self.fights for item in fight["cues"]]
+        if any(item["trigger"] == cue["trigger"] for item in all_cues):
             messagebox.showerror("Duplicate trigger", "Each game trigger can have one cue. Select it and update it instead."); return
-        if any(item["cue"] == cue["cue"] for item in self.cues):
+        if any(item["cue"] == cue["cue"] for item in all_cues):
             messagebox.showerror("Duplicate cue id", "Cue ids must be unique."); return
         self.cues.append(cue)
-        self._refresh_table(); self._refresh_requires_options()
+        self._refresh_table(); self._refresh_requires_options(); self._refresh_fight_box()
 
     def _selected_index(self):
         selected = self.table.selection()
@@ -635,15 +645,22 @@ class Editor(tk.Tk):
         if index is None:
             messagebox.showinfo("Select a cue", "Select a cue in the table first."); return
         try:
+            current = self.cues[index]
+            others = [item for fight in self.fights for item in fight["cues"] if item is not current]
             self.cues[index] = self._read_fields()
         except ValueError as error:
             messagebox.showerror("Invalid cue", str(error)); return
-        self._refresh_table(); self._refresh_requires_options()
+        cue = self.cues[index]
+        if any(item["trigger"] == cue["trigger"] for item in others):
+            messagebox.showerror("Duplicate trigger", "Each game trigger can have one cue."); return
+        if any(item["cue"] == cue["cue"] for item in others):
+            messagebox.showerror("Duplicate cue id", "Cue ids must be unique."); return
+        self._refresh_table(); self._refresh_requires_options(); self._refresh_fight_box()
 
     def _remove_cue(self):
         index = self._selected_index()
         if index is not None:
-            self.cues.pop(index); self._refresh_table(); self._refresh_requires_options()
+            self.cues.pop(index); self._refresh_table(); self._refresh_requires_options(); self._refresh_fight_box()
 
     def _select_cue(self, _event):
         index = self._selected_index()
@@ -668,19 +685,74 @@ class Editor(tk.Tk):
             self.table.insert("", "end", iid=str(index), values=(cue["trigger"], cue["cue"], Path(cue.get("source", "")).name if cue.get("source") else "main", cue.get("requires_trigger", "") or "", cue["start"], cue["end"], "yes" if cue["loop"] else "no", cue["bpm"], cue["transition"], "once->loop" if cue.get("intro") else "no", "stop" if cue.get("block_original", True) else "keep"))
 
     def _project_data(self):
-        return {"version": 1, "name": self.pack_name.get(), "source_file": self.source_file.get(), "boss": self.boss.get(), "cues": self.cues}
+        return {"version": 2, "name": self.pack_name.get(), "source_file": self.source_file.get(), "fights": self.fights}
+
+    def _refresh_fight_box(self):
+        self.fight_box["values"] = [fight["boss"] + " (" + str(len(fight["cues"])) + " cues)" for fight in self.fights]
+        if self._active_fight < len(self.fights):
+            self.fight_box.current(self._active_fight)
+
+    def _select_fight(self, _event=None):
+        index = self.fight_box.current()
+        if index < 0 or index == self._active_fight:
+            return
+        self._switch_fight(index)
+
+    def _switch_fight(self, index):
+        self._active_fight = index
+        self.cues = self.fights[index]["cues"]
+        self.boss.set(self.fights[index]["boss"])
+        self._populate_triggers()
+        self._refresh_table()
+        self._refresh_fight_box()
+        self._clear_cue_fields()
+
+    def _clear_cue_fields(self):
+        self.cue_id.set(""); self.start.set("0"); self.end.set("30")
+        self.bpm.set("120"); self.beats.set("4")
+        self.loop.set(True); self.transition.set("next_bar")
+        self.block_original.set(True)
+        self.cue_source.set(""); self.requires_trigger.set("(none)")
+        self.intro_start.set(""); self.intro_end.set(""); self.fade_in.set("2")
+
+    def _add_fight(self):
+        boss = self.boss.get()
+        if any(fight["boss"] == boss for fight in self.fights):
+            messagebox.showinfo("Fight exists", "A fight for " + boss + " is already in this pack. Select it in the fight list instead."); return
+        self.fights.append({"boss": boss, "cues": []})
+        self._switch_fight(len(self.fights) - 1)
+
+    def _remove_fight(self):
+        if len(self.fights) <= 1:
+            messagebox.showinfo("Keep one fight", "A pack needs at least one fight."); return
+        fight = self.fights[self._active_fight]
+        if fight["cues"] and not messagebox.askyesno("Remove fight", "Remove the fight for " + fight["boss"] + " and its " + str(len(fight["cues"])) + " cues?"):
+            return
+        self.fights.pop(self._active_fight)
+        self._switch_fight(min(self._active_fight, len(self.fights) - 1))
 
     def _new_project(self):
-        self.project_path = None; self.cues = []; self.pack_name.set("My Furi Music Pack"); self.source_file.set(""); self.cue_source.set(""); self.requires_trigger.set("(none)"); self.intro_start.set(""); self.intro_end.set(""); self._refresh_table(); self._refresh_requires_options()
+        self.project_path = None
+        self.fights = [{"boss": next(iter(BOSSES)), "cues": []}]
+        self.pack_name.set("My Furi Music Pack"); self.source_file.set("")
+        self._switch_fight(0)
 
     def _open_project(self):
         selected = filedialog.askopenfilename(filetypes=[("Furi music project", "*.furi-music.json"), ("JSON", "*.json")])
         if not selected: return
         try:
             with open(selected, "r", encoding="utf-8") as handle: data = json.load(handle)
-            if data.get("version") != 1: raise ValueError("This is not a version 1 Furi music project.")
+            if data.get("version") == 1:
+                fights = [{"boss": data["boss"], "cues": data.get("cues", [])}]
+            elif data.get("version") == 2:
+                fights = [{"boss": f["boss"], "cues": f.get("cues", [])} for f in data.get("fights", [])]
+                if not fights:
+                    fights = [{"boss": next(iter(BOSSES)), "cues": []}]
+            else:
+                raise ValueError("This is not a version 1 or 2 Furi music project.")
             self.project_path = Path(selected); self.pack_name.set(data["name"]); self.source_file.set(data["source_file"])
-            self.boss.set(data["boss"]); self._populate_triggers(); self.cues = data.get("cues", []); self._refresh_table(); self._refresh_requires_options()
+            self.fights = fights
+            self._switch_fight(0)
         except (OSError, ValueError, KeyError, json.JSONDecodeError) as error:
             messagebox.showerror("Could not open project", str(error))
 
@@ -696,7 +768,7 @@ class Editor(tk.Tk):
             messagebox.showerror("Could not save project", str(error))
 
     def _build_pack(self):
-        if not self.cues:
+        if not any(fight["cues"] for fight in self.fights):
             messagebox.showerror("No cues", "Add at least one cue."); return
         ffmpeg = self.ffmpeg.get()
         if not (Path(ffmpeg).is_file() or shutil.which(ffmpeg)):
@@ -710,45 +782,55 @@ class Editor(tk.Tk):
             return
         try:
             music_dir = pack_dir / "music"; music_dir.mkdir(parents=True, exist_ok=True)
-            manifest_cues, bindings = [], []
-            for cue in self.cues:
-                cue_source = Path(cue["source"])
-                if not cue_source.is_file():
-                    raise RuntimeError("Source track not found for cue '" + cue["cue"] + "': " + str(cue_source))
-                output = music_dir / (cue["cue"] + ".wav")
-                intro = cue.get("intro")
-                if intro:
-                    start, duration = intro["end"], None
-                else:
-                    start, duration = cue["start"], cue["end"] - cue["start"]
-                command = [ffmpeg, "-y", "-i", str(cue_source), "-ss", str(start)]
-                if duration is not None:
-                    command += ["-t", str(duration)]
-                command += ["-vn", "-c:a", "pcm_s16le", str(output)]
-                completed = subprocess.run(command, capture_output=True, text=True)
-                if completed.returncode != 0:
-                    raise RuntimeError("ffmpeg could not export " + cue["cue"] + ":\n" + completed.stderr[-1000:])
-                manifest_cue = {"id": cue["cue"], "file": "music/" + output.name, "loop": cue["loop"], "start_seconds": 0.0, "bpm": cue["bpm"], "beats_per_bar": cue["beats_per_bar"], "gain_db": 0.0}
-                if intro:
-                    intro_out = music_dir / (cue["cue"] + ".intro.wav")
-                    command = [ffmpeg, "-y", "-i", str(cue_source), "-ss", str(intro["start"]), "-t", str(intro["end"] - intro["start"]), "-vn", "-c:a", "pcm_s16le"]
-                    if intro["fade"] > 0:
-                        command += ["-af", "afade=t=in:st=0:d=" + str(intro["fade"])]
-                    command.append(str(intro_out))
+            manifest_fights = []
+            cue_count = 0
+            for fight in self.fights:
+                cues = fight["cues"]
+                if not cues:
+                    continue
+                boss = BOSSES[fight["boss"]]
+                manifest_cues, bindings = [], []
+                for cue in cues:
+                    cue_source = Path(cue["source"])
+                    if not cue_source.is_file():
+                        raise RuntimeError("Source track not found for cue '" + cue["cue"] + "': " + str(cue_source))
+                    output = music_dir / (cue["cue"] + ".wav")
+                    intro = cue.get("intro")
+                    if intro:
+                        start, duration = intro["end"], None
+                    else:
+                        start, duration = cue["start"], cue["end"] - cue["start"]
+                    command = [ffmpeg, "-y", "-i", str(cue_source), "-ss", str(start)]
+                    if duration is not None:
+                        command += ["-t", str(duration)]
+                    command += ["-vn", "-c:a", "pcm_s16le", str(output)]
                     completed = subprocess.run(command, capture_output=True, text=True)
                     if completed.returncode != 0:
-                        raise RuntimeError("ffmpeg could not export intro for " + cue["cue"] + ":\n" + completed.stderr[-1000:])
-                    manifest_cue["intro_file"] = "music/" + intro_out.name
-                manifest_cues.append(manifest_cue)
-                binding = {"trigger": cue["trigger"], "cue": cue["cue"], "transition": cue["transition"], "fade_seconds": 0.03, "block_original": bool(cue.get("block_original", True))}
-                if cue.get("requires_trigger"):
-                    binding["requires_trigger"] = cue["requires_trigger"]
-                bindings.append(binding)
-            boss = BOSSES[self.boss.get()]
-            bindings.append({"trigger": "event:" + boss["stop"], "action": "stop", "fade_seconds": 0.15, "block_original": True})
-            manifest = {"schema_version": 1, "name": self.pack_name.get(), "gain_db": 0.0, "cues": manifest_cues, "bindings": bindings}
+                        raise RuntimeError("ffmpeg could not export " + cue["cue"] + ":\n" + completed.stderr[-1000:])
+                    manifest_cue = {"id": cue["cue"], "file": "music/" + output.name, "loop": cue["loop"], "start_seconds": 0.0, "bpm": cue["bpm"], "beats_per_bar": cue["beats_per_bar"], "gain_db": 0.0}
+                    if intro:
+                        intro_out = music_dir / (cue["cue"] + ".intro.wav")
+                        command = [ffmpeg, "-y", "-i", str(cue_source), "-ss", str(intro["start"]), "-t", str(intro["end"] - intro["start"]), "-vn", "-c:a", "pcm_s16le"]
+                        if intro["fade"] > 0:
+                            command += ["-af", "afade=t=in:st=0:d=" + str(intro["fade"])]
+                        command.append(str(intro_out))
+                        completed = subprocess.run(command, capture_output=True, text=True)
+                        if completed.returncode != 0:
+                            raise RuntimeError("ffmpeg could not export intro for " + cue["cue"] + ":\n" + completed.stderr[-1000:])
+                        manifest_cue["intro_file"] = "music/" + intro_out.name
+                    manifest_cues.append(manifest_cue)
+                    binding = {"trigger": cue["trigger"], "cue": cue["cue"], "transition": cue["transition"], "fade_seconds": 0.03, "block_original": bool(cue.get("block_original", True))}
+                    if cue["trigger"] == "event:" + boss["play"]:
+                        binding["start"] = True
+                    if cue.get("requires_trigger"):
+                        binding["requires_trigger"] = cue["requires_trigger"]
+                    bindings.append(binding)
+                bindings.append({"trigger": "event:" + boss["stop"], "action": "stop", "fade_seconds": 0.15, "block_original": True})
+                manifest_fights.append({"boss": fight["boss"], "cues": manifest_cues, "bindings": bindings})
+                cue_count += len(cues)
+            manifest = {"schema_version": 2, "name": self.pack_name.get(), "gain_db": 0.0, "fights": manifest_fights}
             (pack_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-            messagebox.showinfo("Pack built", f"Built {len(self.cues)} cues in:\n{pack_dir}\n\nSet Active pack = {pack_dir.name} in the BepInEx config.")
+            messagebox.showinfo("Pack built", f"Built {cue_count} cues for {len(manifest_fights)} fights in:\n{pack_dir}\n\nSet Active pack = {pack_dir.name} in the BepInEx config.")
         except (OSError, RuntimeError) as error:
             messagebox.showerror("Could not build pack", str(error))
 

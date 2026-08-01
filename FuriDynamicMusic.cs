@@ -21,7 +21,7 @@ namespace FuriDynamicMusic
     {
         public const string PluginGuid = "io.github.furi-modding.dynamicmusic";
         public const string PluginName = "Furi Native Music Pack";
-        public const string PluginVersion = "4.1.6";
+        public const string PluginVersion = "4.1.7";
 
         internal static DynamicMusicPlugin Instance;
         internal new static BepInEx.Logging.ManualLogSource Logger;
@@ -473,7 +473,7 @@ namespace FuriDynamicMusic
                     return;
                 }
 
-                if (i == 0)
+                if (b.Start)
                 {
                     firedEventIds.Clear();
                     firedStateKeys.Clear();
@@ -681,6 +681,7 @@ namespace FuriDynamicMusic
         public string CueId;
         public string Action = "play";
         public string RequiresTrigger = "";
+        public bool Start;
         public bool BlockOriginal = true;
         public float FadeSeconds;
 
@@ -760,7 +761,26 @@ namespace FuriDynamicMusic
             if (obj.ContainsKey("name")) pack.Name = obj["name"] as string ?? "";
             if (obj.ContainsKey("gain_db")) pack.GainDb = Convert.ToSingle(obj["gain_db"], CultureInfo.InvariantCulture);
 
-            List<object> cuesList = obj.ContainsKey("cues") ? obj["cues"] as List<object> : null;
+            List<object> fightsList = obj.ContainsKey("fights") ? obj["fights"] as List<object> : null;
+            if (fightsList != null && fightsList.Count > 0)
+            {
+                foreach (object item in fightsList)
+                {
+                    Dictionary<string, object> f = item as Dictionary<string, object>;
+                    if (f == null) continue;
+                    ParseFight(f, pack);
+                }
+            }
+            else
+            {
+                ParseFight(obj, pack);
+            }
+            return pack;
+        }
+
+        private static void ParseFight(Dictionary<string, object> fObj, MusicPack pack)
+        {
+            List<object> cuesList = fObj.ContainsKey("cues") ? fObj["cues"] as List<object> : null;
             if (cuesList != null)
             {
                 foreach (object item in cuesList)
@@ -780,7 +800,7 @@ namespace FuriDynamicMusic
                 }
             }
 
-            List<object> bindingsList = obj.ContainsKey("bindings") ? obj["bindings"] as List<object> : null;
+            List<object> bindingsList = fObj.ContainsKey("bindings") ? fObj["bindings"] as List<object> : null;
             if (bindingsList != null)
             {
                 foreach (object item in bindingsList)
@@ -793,12 +813,12 @@ namespace FuriDynamicMusic
                     binding.CueId = GetStr(bObj, "cue", "");
                     binding.Action = GetStr(bObj, "action", "play");
                     binding.RequiresTrigger = GetStr(bObj, "requires_trigger", "");
+                    binding.Start = GetBool(bObj, "start", false);
                     binding.BlockOriginal = GetBool(bObj, "block_original", true);
                     binding.FadeSeconds = GetFlt(bObj, "fade_seconds", 0f);
                     pack.Bindings.Add(binding);
                 }
             }
-            return pack;
         }
 
         private static string GetStr(Dictionary<string, object> d, string k, string def)
