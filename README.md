@@ -1,27 +1,56 @@
-# Furi Wwise Music Pack
+# Furi Dynamic Music Mod
 
-This BepInEx plugin replaces every embedded music media item inside a temporary copy of Furi's own `Music_SoundBank.bnk`. It does not play audio through Unity or a separate Windows audio player.
+The mod makes the game Furi play your music.
+It replaces the original music of the boss fights with your own music.
 
-As a result, Furi itself retains responsibility for music volume, master volume, focus muting, pause behavior, mixing, and music-event timing.
+## The Project Has Two Parts
 
-## Current pack scope
+- The mod. It is the file "FuriDynamicMusic.dll".
+  It runs in the game with BepInEx.
 
-For the current test mode, the selected pack's `music/1.wav` is inserted into every music slot from:
+- The music pack maker. It makes music packs.
+  It is one EXE file, or the file "FuriMusicEditor.py".
 
-`BepInEx/plugins/FuriDynamicMusic/packs/<pack-name>/music/1.wav`
+## How It Works
 
-This deliberately makes the supplied track play for all Furi music events, including menus and every boss, while Furi's original event/state/transition graph remains in control. The WAV must be standard 16-bit PCM; the supplied track is already compatible.
+- A music pack has your music for one boss fight.
+- The pack has a manifest and WAV files.
+- The mod reads the pack when the game starts.
+- In a fight, the game sends a trigger for each fight moment.
+  Examples: the start of the fight, a phase change, an attack sound.
+- The mod plays the music of the matching trigger.
 
-## Reversibility
+## The Files in This Repository
 
-On startup, the plugin saves the untouched stock bank to:
+- "README-INSTALL.md". It explains how to install the mod.
+- "README-MUSIC-PACK-MAKER.md". It explains how to use the pack maker.
+- "FuriMusicEditor.py". It is the source code of the pack maker.
+- The folder "SourceCode". It has the source code of the mod.
+  The file "SourceCode\README.md" explains how to build the mod.
+- The folder "ExamplePack". It is an example of a music pack.
+- The folder "packs". It has the music packs you make.
 
-`BepInEx/plugins/FuriDynamicMusic/banks/Music_SoundBank.stock.bnk`
+## Requirements
 
-It then stages a patched copy only while the plugin is active. On a normal game exit or when the plugin is unloaded, it restores Furi's original bank. If the game is interrupted, the next plugin start restores stock before applying a fresh replacement.
+- The game Furi on your computer.
+- BepInEx 5 installed into the game folder.
+- ffmpeg.exe. The pack maker uses it to export WAV files.
+- Your music track. It can be an MP3, OGG, WAV, or AIF file.
 
-## Build
+## The Documents Use Simplified Technical English
 
-Run `FuriMusicMod/build.ps1`. The DLL is written to:
+All instructions in this repository use ASD-STE100.
+This is the Simplified Technical English standard.
+It makes the instructions clear for all users.
 
-`BepInEx/plugins/FuriDynamicMusic/FuriDynamicMusic.dll`
+## License
+
+The mod, the pack maker, and the example packs use the "Furi Dynamic Music
+Mod License". See the file "LICENSE.md".
+The license requires credit to the Author, open-source Source, and a
+revenue share for commercial use.
+
+## Current Version
+
+- Mod version: 4.1.1
+- Pack schema version: 1
