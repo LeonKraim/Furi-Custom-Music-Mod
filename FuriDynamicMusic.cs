@@ -21,7 +21,7 @@ namespace FuriDynamicMusic
     {
         public const string PluginGuid = "io.github.furi-modding.dynamicmusic";
         public const string PluginName = "Furi Native Music Pack";
-        public const string PluginVersion = "4.1.5";
+        public const string PluginVersion = "4.1.6";
 
         internal static DynamicMusicPlugin Instance;
         internal new static BepInEx.Logging.ManualLogSource Logger;
@@ -42,7 +42,9 @@ namespace FuriDynamicMusic
         private bool bindingsReady;
         private float bindNextTickAt;
         private int bindState;
-        private HashSet<string> playedCues = new HashSet<string>();
+        private HashSet<uint> firedEventIds = new HashSet<uint>();
+        private HashSet<string> firedStateKeys = new HashSet<string>();
+        private Dictionary<string, uint> resolvedTriggerIds = new Dictionary<string, uint>();
 
         private static MethodInfo getIdFromStringMethod;
         private static MethodInfo executeActionOnEventMethod;
@@ -445,6 +447,7 @@ namespace FuriDynamicMusic
         internal void OnEventPosted(uint eventId, GameObject go)
         {
             if (monitorAll != null && monitorAll.Value) LogMonitorEvent(eventId, go);
+            firedEventIds.Add(eventId);
 
             if (!bindingsReady || pack == null) return;
 
@@ -456,7 +459,8 @@ namespace FuriDynamicMusic
 
                 if (b.Action == "stop")
                 {
-                    playedCues.Clear();
+                    firedEventIds.Clear();
+                    firedStateKeys.Clear();
                     Logger.LogInfo("Stop trigger fired (event " + eventId + ")");
                     StopCustomMusic();
                     return;
@@ -469,18 +473,21 @@ namespace FuriDynamicMusic
                     return;
                 }
 
-                if (i == 0) playedCues.Clear();
-
-                if (b.RequiresCue.Length > 0 && !playedCues.Contains(b.RequiresCue))
+                if (i == 0)
                 {
-                    Logger.LogInfo("Cue '" + cue.Id + "' requires '" + b.RequiresCue + "' first; skipping.");
+                    firedEventIds.Clear();
+                    firedStateKeys.Clear();
+                }
+
+                if (b.RequiresTrigger.Length > 0 && !HasFired(b.RequiresTrigger))
+                {
+                    Logger.LogInfo("Cue '" + cue.Id + "' requires trigger '" + b.RequiresTrigger + "' first; skipping.");
                     return;
                 }
 
                 Logger.LogInfo("Play trigger fired (event " + eventId + ") -> cue '" + cue.Id + "'");
                 BlockOriginalMusic(eventId, go);
                 PlayCue(cue);
-                playedCues.Add(cue.Id);
                 return;
             }
 
@@ -495,6 +502,14 @@ namespace FuriDynamicMusic
         {
             if (monitorAll != null && monitorAll.Value) LogMonitorState(stateGroup, stateId);
 
+            string stateKey;
+            string groupName, stateName;
+            if (groupNames.TryGetValue(stateGroup, out groupName) && stateNames.TryGetValue(stateId, out stateName))
+                stateKey = groupName + "." + stateName;
+            else
+                stateKey = "S:" + stateGroup + ":" + stateId;
+            firedStateKeys.Add(stateKey);
+
             if (!bindingsReady || pack == null) return;
 
             for (int i = 0; i < pack.Bindings.Count; i++)
@@ -506,17 +521,46 @@ namespace FuriDynamicMusic
                 Cue cue = pack.GetCue(b.CueId);
                 if (cue == null) return;
 
-                if (b.RequiresCue.Length > 0 && !playedCues.Contains(b.RequiresCue))
+                if (b.RequiresTrigger.Length > 0 && !HasFired(b.RequiresTrigger))
                 {
-                    Logger.LogInfo("Cue '" + cue.Id + "' requires '" + b.RequiresCue + "' first; skipping.");
+                    Logger.LogInfo("Cue '" + cue.Id + "' requires trigger '" + b.RequiresTrigger + "' first; skipping.");
                     return;
                 }
 
                 Logger.LogInfo("State trigger fired (" + stateGroup + "." + stateId + ") -> cue '" + cue.Id + "'");
                 PlayCue(cue);
-                playedCues.Add(cue.Id);
                 return;
             }
+        }
+
+        private bool HasFired(string trigger)
+        {
+            if (trigger.StartsWith("state:", StringComparison.OrdinalIgnoreCase))
+            {
+                string name = trigger.Substring(6);
+                if (firedStateKeys.Contains(name)) return true;
+                int dot = name.IndexOf('.');
+                if (dot > 0)
+                {
+                    uint groupId = WwiseGetIdFromString(name.Substring(0, dot));
+                    uint stateId = WwiseGetIdFromString(name.Substring(dot + 1));
+                    if (groupId != 0 && stateId != 0)
+                        return firedStateKeys.Contains("S:" + groupId + ":" + stateId);
+                }
+                return false;
+            }
+
+            if (trigger.StartsWith("event:", StringComparison.OrdinalIgnoreCase))
+                trigger = trigger.Substring(6);
+
+            uint eventId;
+            if (!resolvedTriggerIds.TryGetValue(trigger, out eventId))
+            {
+                eventId = WwiseGetIdFromString(trigger);
+                if (eventId == 0) return false;
+                resolvedTriggerIds[trigger] = eventId;
+            }
+            return firedEventIds.Contains(eventId);
         }
 
         private void EnsureNameIndex()
@@ -636,7 +680,7 @@ namespace FuriDynamicMusic
         public string StateName;
         public string CueId;
         public string Action = "play";
-        public string RequiresCue = "";
+        public string RequiresTrigger = "";
         public bool BlockOriginal = true;
         public float FadeSeconds;
 
@@ -748,7 +792,7 @@ namespace FuriDynamicMusic
                     Binding binding = Binding.ParseTrigger(trigger);
                     binding.CueId = GetStr(bObj, "cue", "");
                     binding.Action = GetStr(bObj, "action", "play");
-                    binding.RequiresCue = GetStr(bObj, "requires_cue", "");
+                    binding.RequiresTrigger = GetStr(bObj, "requires_trigger", "");
                     binding.BlockOriginal = GetBool(bObj, "block_original", true);
                     binding.FadeSeconds = GetFlt(bObj, "fade_seconds", 0f);
                     pack.Bindings.Add(binding);

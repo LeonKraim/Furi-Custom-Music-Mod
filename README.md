@@ -87,10 +87,11 @@ Then select the game folder with "Browse".
     The rest of the song is from the intro end to the end of the source track.
     To use only the "Start/End" loop, leave the intro fields empty.
 
-13. Optional: select a cue in the field "Requires cue".
-    The cue fires only if the selected cue already played in this fight.
+13. Optional: select a trigger in the field "Requires trigger".
+    The cue fires only after this trigger already fired in the fight.
     This makes sequences: one fight moment plays only after another fight moment.
-    Example: a phase change to the second phase only happens after the intro played.
+    Example: a phase-change cue plays only after the phase-2 trigger happened.
+    The mod tracks the triggers from the start of the fight.
     The list resets when the fight starts again.
 
 14. Select "Add cue".
