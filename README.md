@@ -154,26 +154,3 @@ Do this step only if the game folder has no folder "BepInEx".
 
 4. Start the game.
    The mod is now active.
-
-## Install a Music Pack
-
-1. Make a pack with the music pack maker.
-   The maker writes the pack into this folder:
-
-   BepInEx\plugins\FuriDynamicMusic\packs\
-
-2. Open the file "BepInEx\config\io.github.furi-modding.dynamicmusic.cfg".
-
-3. Find the line "Active pack".
-
-4. Set the line to the name of the pack folder.
-   Example:
-
-   Active pack = My_Furi_Music_Pack
-
-5. Save the file.
-
-6. Start the game.
-
-7. Play the fight of the boss in your pack.
-   Your music plays instead of the original music.
