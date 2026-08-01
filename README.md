@@ -30,7 +30,9 @@ Each release has 2 files:
 NOTE: The pack maker finds ffmpeg automatically.
 If it cannot find ffmpeg, select the file with "Browse".
 NOTE: The pack maker finds the game folder automatically.
-If it cannot find the game, select the game folder with "Browse".
+The pack maker searches the folders above the EXE file for the file "Furi.exe".
+If the EXE is not inside or near the game folder, it cannot find the game.
+Then select the game folder with "Browse".
 
 ## The Words in the Pack Maker
 
