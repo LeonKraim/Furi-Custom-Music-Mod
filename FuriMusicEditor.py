@@ -213,8 +213,11 @@ EVENT_CATEGORY_DESCS = {
 
 
 def default_game_root():
-    """The editor lives in <game root>/FuriMusicMod/, so the game root is two levels up."""
-    here = Path(__file__).resolve()
+    """Find the game root: the folder that contains Furi.exe. Works from the script and from the EXE."""
+    here = Path(sys.executable if getattr(sys, "frozen", False) else __file__).resolve()
+    for parent in here.parents:
+        if (parent / "Furi.exe").is_file():
+            return str(parent)
     return str(here.parent.parent)
 
 
