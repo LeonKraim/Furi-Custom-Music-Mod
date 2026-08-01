@@ -218,6 +218,15 @@ def default_game_root():
     return str(here.parent.parent)
 
 
+def default_ffmpeg():
+    """Prefer the ffmpeg bundled into the EXE; otherwise fall back to the system PATH."""
+    if getattr(sys, "frozen", False):
+        bundled = Path(getattr(sys, "_MEIPASS", "")) / "ffmpeg.exe"
+        if bundled.is_file():
+            return str(bundled)
+    return shutil.which("ffmpeg") or "ffmpeg"
+
+
 def event_category(path, name):
     if "ENV_Events" in path:
         return "Ambience"
@@ -293,7 +302,7 @@ class Editor(tk.Tk):
         self.source_file = tk.StringVar()
         self.game_root = tk.StringVar(value=default_game_root())
         self.boss = tk.StringVar(value=next(iter(BOSSES)))
-        self.ffmpeg = tk.StringVar(value=shutil.which("ffmpeg") or "ffmpeg")
+        self.ffmpeg = tk.StringVar(value=default_ffmpeg())
         self.trigger = tk.StringVar()
         self.cue_id = tk.StringVar()
         self.start = tk.StringVar(value="0")
