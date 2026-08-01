@@ -21,7 +21,7 @@ namespace FuriDynamicMusic
     {
         public const string PluginGuid = "io.github.furi-modding.dynamicmusic";
         public const string PluginName = "Furi Native Music Pack";
-        public const string PluginVersion = "4.1.3";
+        public const string PluginVersion = "4.1.4";
 
         internal static DynamicMusicPlugin Instance;
         internal new static BepInEx.Logging.ManualLogSource Logger;
@@ -30,6 +30,8 @@ namespace FuriDynamicMusic
         private ConfigEntry<bool> monitorAll;
 
         private string pluginRoot;
+        private bool indexDone;
+        private int indexAttempts;
         private Dictionary<uint, string> eventNames = new Dictionary<uint, string>();
         private Dictionary<uint, string> stateNames = new Dictionary<uint, string>();
         private Dictionary<uint, string> groupNames = new Dictionary<uint, string>();
@@ -58,7 +60,6 @@ namespace FuriDynamicMusic
             if (string.IsNullOrEmpty(pluginRoot)) pluginRoot = Path.GetFullPath(".");
 
             CacheWwiseMethods();
-            LoadBankNameIndex();
 
             try
             {
@@ -104,7 +105,9 @@ namespace FuriDynamicMusic
         }
 
         // Index every event/state/group name of the game's sound banks so the trigger
-        // monitor can log readable names instead of raw Wwise hash ids.
+        // monitor can log readable names instead of raw Wwise hash ids. Runs lazily on
+        // the first trigger because the Wwise engine (and thus GetIDFromString) is not
+        // up yet when the plugin loads.
         private void LoadBankNameIndex()
         {
             try
@@ -498,19 +501,29 @@ namespace FuriDynamicMusic
             }
         }
 
+        private void EnsureNameIndex()
+        {
+            if (indexDone || indexAttempts >= 5) return;
+            indexAttempts++;
+            LoadBankNameIndex();
+            if (eventNames.Count > 0) indexDone = true;
+        }
+
         private void LogMonitorEvent(uint eventId, GameObject go)
         {
+            EnsureNameIndex();
             string name;
-            if (!eventNames.TryGetValue(eventId, out name)) name = "<id " + eventId + ">";
-            Logger.LogInfo("[TriggerMonitor] EVENT:" + name + (go != null ? "  (on " + go.name + ")" : ""));
+            if (!eventNames.TryGetValue(eventId, out name)) return;
+            Logger.LogInfo("[TriggerMonitor] event:" + name);
         }
 
         private void LogMonitorState(uint stateGroup, uint stateId)
         {
+            EnsureNameIndex();
             string groupName, stateName;
-            if (!groupNames.TryGetValue(stateGroup, out groupName)) groupName = "<group " + stateGroup + ">";
-            if (!stateNames.TryGetValue(stateId, out stateName)) stateName = "<state " + stateId + ">";
-            Logger.LogInfo("[TriggerMonitor] STATE:" + groupName + "." + stateName);
+            if (!groupNames.TryGetValue(stateGroup, out groupName)) return;
+            if (!stateNames.TryGetValue(stateId, out stateName)) return;
+            Logger.LogInfo("[TriggerMonitor] state:" + groupName + "." + stateName);
         }
 
         private void BlockOriginalMusic(uint eventId, GameObject go)
