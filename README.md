@@ -1,9 +1,9 @@
-# Furi Dynamic Music Mod
+## Furi Dynamic Music Mod
 
 The mod makes the game Furi play your music.
 It replaces the original music of the boss fights with your own music.
 
-## The Project Has Two Parts
+### The Project Has Two Parts
 
 - The mod. It is the file "FuriDynamicMusic.dll".
   It runs in the game with BepInEx.
@@ -11,7 +11,7 @@ It replaces the original music of the boss fights with your own music.
 - The music pack maker. It makes music packs.
   It is one EXE file, or the file "FuriMusicEditor.py".
 
-## How It Works
+### How It Works
 
 - A music pack has your music for one boss fight.
 - The pack has a manifest and WAV files.
@@ -20,7 +20,7 @@ It replaces the original music of the boss fights with your own music.
   Examples: the start of the fight, a phase change, an attack sound.
 - The mod plays the music of the matching trigger.
 
-## The Files in This Repository
+### The Files in This Repository
 
 - "README-INSTALL.md". It explains how to install the mod.
 - "README-MUSIC-PACK-MAKER.md". It explains how to use the pack maker.
@@ -30,27 +30,27 @@ It replaces the original music of the boss fights with your own music.
 - The folder "ExamplePack". It is an example of a music pack.
 - The folder "packs". It has the music packs you make.
 
-## Requirements
+### Requirements
 
 - The game Furi on your computer.
 - BepInEx 5 installed into the game folder.
 - ffmpeg.exe. The pack maker uses it to export WAV files.
 - Your music track. It can be an MP3, OGG, WAV, or AIF file.
 
-## The Documents Use Simplified Technical English
+### The Documents Use Simplified Technical English
 
 All instructions in this repository use ASD-STE100.
 This is the Simplified Technical English standard.
 It makes the instructions clear for all users.
 
-## License
+### License
 
 The mod, the pack maker, and the example packs use the "Furi Dynamic Music
 Mod License". See the file "LICENSE.md".
 The license requires credit to the Author, open-source Source, and a
 revenue share for commercial use.
 
-## Current Version
+### Current Version
 
 - Mod version: 4.1.1
 - Pack schema version: 1
