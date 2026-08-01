@@ -4,6 +4,8 @@ The music pack maker makes a music pack for the mod.
 A music pack has your music for one boss fight.
 This document explains how to use the pack maker.
 
+NOTE: The example pack only changes the music of the first fight against The Chain.
+
 ## What You Need
 
 - The pack maker. It is one EXE file.

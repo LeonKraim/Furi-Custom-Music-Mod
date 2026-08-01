@@ -21,7 +21,7 @@ namespace FuriDynamicMusic
     {
         public const string PluginGuid = "io.github.furi-modding.dynamicmusic";
         public const string PluginName = "Furi Native Music Pack";
-        public const string PluginVersion = "4.1.1";
+        public const string PluginVersion = "4.1.2";
 
         internal static DynamicMusicPlugin Instance;
         internal new static BepInEx.Logging.ManualLogSource Logger;
@@ -55,17 +55,20 @@ namespace FuriDynamicMusic
                 return;
             }
 
-            string manifestPath = Path.Combine(pluginRoot, "packs", activePack.Value, "manifest.json");
-            if (!File.Exists(manifestPath))
+            string packsDir = Path.Combine(pluginRoot, "packs");
+            string manifestPath = ResolvePack(packsDir, activePack.Value.Trim());
+            if (manifestPath == null)
             {
-                Logger.LogWarning("Manifest not found: " + manifestPath);
+                Logger.LogWarning("No usable pack found in " + packsDir + " for active pack '" + activePack.Value + "'.");
                 return;
             }
+
+            string packRoot = Path.GetDirectoryName(manifestPath);
 
             try
             {
                 string json = File.ReadAllText(manifestPath);
-                pack = MusicPack.Parse(json, Path.Combine(pluginRoot, "packs", activePack.Value));
+                pack = MusicPack.Parse(json, packRoot);
                 Logger.LogInfo("Loaded pack '" + pack.Name + "' with " + pack.Cues.Count + " cues and " + pack.Bindings.Count + " bindings.");
             }
             catch (Exception e)
@@ -87,6 +90,52 @@ namespace FuriDynamicMusic
             {
                 Logger.LogError("Harmony patching failed: " + e.ToString());
             }
+        }
+
+        // Find the manifest of the configured pack. The configured name does not have to
+        // match the folder name exactly: case is ignored, a folder that contains the
+        // configured name (or is contained in it) is accepted, and if only one pack
+        // folder exists it is used as a last resort.
+        private string ResolvePack(string packsDir, string wanted)
+        {
+            string exact = Path.Combine(packsDir, wanted, "manifest.json");
+            if (File.Exists(exact))
+                return exact;
+
+            string wantedLower = wanted.ToLowerInvariant();
+            string containsMatch = null;
+            try
+            {
+                foreach (string dir in Directory.GetDirectories(packsDir))
+                {
+                    string name = Path.GetFileName(dir);
+                    string lower = name.ToLowerInvariant();
+                    if (lower == wantedLower)
+                        return Path.Combine(dir, "manifest.json");
+                    if (containsMatch == null && (lower.Contains(wantedLower) || wantedLower.Contains(lower)))
+                        containsMatch = Path.Combine(dir, "manifest.json");
+                }
+                if (containsMatch != null && File.Exists(containsMatch))
+                {
+                    Logger.LogInfo("Active pack '" + wanted + "' not found by exact name; using '" + Path.GetFileName(Path.GetDirectoryName(containsMatch)) + "'.");
+                    return containsMatch;
+                }
+                string[] dirs = Directory.GetDirectories(packsDir);
+                if (dirs.Length == 1)
+                {
+                    string only = Path.Combine(dirs[0], "manifest.json");
+                    if (File.Exists(only))
+                    {
+                        Logger.LogInfo("Active pack '" + wanted + "' not found; using the only available pack '" + Path.GetFileName(dirs[0]) + "'.");
+                        return only;
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Logger.LogWarning("Could not search packs folder: " + e.Message);
+            }
+            return null;
         }
 
         private void PatchSoundManager(Harmony harmony)
