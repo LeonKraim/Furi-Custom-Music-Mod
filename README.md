@@ -110,6 +110,25 @@ Then select the game folder with "Browse".
 2. Set the config "Active pack" to the pack name.
 
 
+## Watch the Triggers in Real Time
+
+The file MonitorTriggers.bat shows every trigger the game fires while you play.
+The mod writes one line for every event and state change.
+This helps you find the right trigger for each fight moment.
+
+1. Start the game with the mod installed.
+
+2. Open MonitorTriggers.bat.
+   It shows the triggers in real time.
+
+3. Play the fight.
+   Each line shows one event or state.
+   Examples:
+
+   EVENT:Play_Law_Music_Arena
+   STATE:Law_Path.Law_Path01
+
+
 ## Notes
 
 - The mod reads the pack when the game starts.

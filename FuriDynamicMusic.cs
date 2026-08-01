@@ -21,12 +21,18 @@ namespace FuriDynamicMusic
     {
         public const string PluginGuid = "io.github.furi-modding.dynamicmusic";
         public const string PluginName = "Furi Native Music Pack";
-        public const string PluginVersion = "4.1.2";
+        public const string PluginVersion = "4.1.3";
 
         internal static DynamicMusicPlugin Instance;
         internal new static BepInEx.Logging.ManualLogSource Logger;
 
         private ConfigEntry<string> activePack;
+        private ConfigEntry<bool> monitorAll;
+
+        private string pluginRoot;
+        private Dictionary<uint, string> eventNames = new Dictionary<uint, string>();
+        private Dictionary<uint, string> stateNames = new Dictionary<uint, string>();
+        private Dictionary<uint, string> groupNames = new Dictionary<uint, string>();
 
         private MusicPack pack;
         private WavePlayer player;
@@ -45,9 +51,25 @@ namespace FuriDynamicMusic
 
             activePack = Config.Bind("General", "Active pack", "",
                 "Folder name below plugins/FuriDynamicMusic/packs. Leave blank to disable.");
+            monitorAll = Config.Bind("General", "Monitor all triggers", true,
+                "Log every Wwise event and state change with a [TriggerMonitor] line, for the real-time trigger monitor.");
 
-            string pluginRoot = Path.GetDirectoryName(Info.Location);
+            pluginRoot = Path.GetDirectoryName(Info.Location);
             if (string.IsNullOrEmpty(pluginRoot)) pluginRoot = Path.GetFullPath(".");
+
+            CacheWwiseMethods();
+            LoadBankNameIndex();
+
+            try
+            {
+                var harmony = new Harmony(PluginGuid);
+                PatchSoundManager(harmony);
+                Logger.LogInfo("Harmony patches applied.");
+            }
+            catch (Exception e)
+            {
+                Logger.LogError("Harmony patching failed: " + e.ToString());
+            }
 
             if (string.IsNullOrWhiteSpace(activePack.Value))
             {
@@ -79,16 +101,51 @@ namespace FuriDynamicMusic
 
             player = new WavePlayer();
             bindState = 1;
+        }
 
+        // Index every event/state/group name of the game's sound banks so the trigger
+        // monitor can log readable names instead of raw Wwise hash ids.
+        private void LoadBankNameIndex()
+        {
             try
             {
-                var harmony = new Harmony(PluginGuid);
-                PatchSoundManager(harmony);
-                Logger.LogInfo("Harmony patches applied.");
+                string gameRoot = Path.GetFullPath(Path.Combine(pluginRoot, "..", "..", ".."));
+                string bankDir = Path.Combine(gameRoot, "Furi_Data", "StreamingAssets", "Audio", "GeneratedSoundBanks", "Windows");
+                if (!Directory.Exists(bankDir))
+                {
+                    Logger.LogWarning("Monitor: sound bank folder not found at " + bankDir + "; trigger names will not be resolved.");
+                    return;
+                }
+                foreach (string file in Directory.GetFiles(bankDir, "*.txt"))
+                {
+                    string section = null;
+                    string[] lines;
+                    try { lines = File.ReadAllLines(file); }
+                    catch { continue; }
+                    foreach (string line in lines)
+                    {
+                        if (line.StartsWith("Event\t")) { section = "event"; continue; }
+                        if (line.StartsWith("State Group\t")) { section = "group"; continue; }
+                        if (line.StartsWith("State\t")) { section = "state"; continue; }
+                        if (line.StartsWith("Custom State") || line.StartsWith("Game Parameter") ||
+                            line.StartsWith("Audio Bus") || line.StartsWith("Switch")) { section = null; continue; }
+                        if (!line.StartsWith("\t")) continue;
+                        string[] parts = line.Split('\t');
+                        if (parts.Length < 3) continue;
+                        string name = parts[2].Trim();
+                        if (name.Length == 0) continue;
+                        uint hash = WwiseGetIdFromString(name);
+                        if (hash == 0) continue;
+                        if (section == "event") eventNames[hash] = name;
+                        else if (section == "state") stateNames[hash] = name;
+                        else if (section == "group") groupNames[hash] = name;
+                    }
+                }
+                Logger.LogInfo("Monitor: indexed " + eventNames.Count + " events, " + stateNames.Count + " states, " + groupNames.Count + " groups from the sound banks.");
             }
             catch (Exception e)
             {
-                Logger.LogError("Harmony patching failed: " + e.ToString());
+                Logger.LogWarning("Monitor: could not index sound banks: " + e.Message);
             }
         }
 
@@ -383,6 +440,8 @@ namespace FuriDynamicMusic
 
         internal void OnEventPosted(uint eventId, GameObject go)
         {
+            if (monitorAll != null && monitorAll.Value) LogMonitorEvent(eventId, go);
+
             if (!bindingsReady || pack == null) return;
 
             for (int i = 0; i < pack.Bindings.Count; i++)
@@ -420,6 +479,8 @@ namespace FuriDynamicMusic
 
         internal void OnStateChanged(uint stateGroup, uint stateId)
         {
+            if (monitorAll != null && monitorAll.Value) LogMonitorState(stateGroup, stateId);
+
             if (!bindingsReady || pack == null) return;
 
             for (int i = 0; i < pack.Bindings.Count; i++)
@@ -435,6 +496,21 @@ namespace FuriDynamicMusic
                 PlayCue(cue);
                 return;
             }
+        }
+
+        private void LogMonitorEvent(uint eventId, GameObject go)
+        {
+            string name;
+            if (!eventNames.TryGetValue(eventId, out name)) name = "<id " + eventId + ">";
+            Logger.LogInfo("[TriggerMonitor] EVENT:" + name + (go != null ? "  (on " + go.name + ")" : ""));
+        }
+
+        private void LogMonitorState(uint stateGroup, uint stateId)
+        {
+            string groupName, stateName;
+            if (!groupNames.TryGetValue(stateGroup, out groupName)) groupName = "<group " + stateGroup + ">";
+            if (!stateNames.TryGetValue(stateId, out stateName)) stateName = "<state " + stateId + ">";
+            Logger.LogInfo("[TriggerMonitor] STATE:" + groupName + "." + stateName);
         }
 
         private void BlockOriginalMusic(uint eventId, GameObject go)
