@@ -1,14 +1,8 @@
-Use the Music Pack Maker
+# Music Pack Maker
 
 The music pack maker makes a music pack for the mod.
 A music pack has your music for one boss fight.
 This document explains how to use the pack maker.
-
-## What It Does
-
-- It selects the parts of your song for the fight moments.
-- It exports the parts as WAV files.
-- It writes the pack into the folder "packs" of the mod.
 
 ## What You Need
 
@@ -87,20 +81,6 @@ If it cannot find the game, select the game folder with "Browse".
     The pack folder is in this folder:
 
     BepInEx\plugins\FuriDynamicMusic\packs\
-
-## Open the Trigger Reference
-
-The trigger list shows every trigger of the selected boss.
-It does not show what each trigger means.
-For the meaning, use the reference window.
-
-1. Select "Trigger reference / help".
-   The reference window opens.
-
-2. Read the meaning of each trigger.
-
-3. Use the pack maker while the reference window is open.
-   The two windows work at the same time.
 
 ## Install the Pack
 
@@ -197,6 +177,3 @@ Do this step only if the game folder has no folder "BepInEx".
 
 7. Play the fight of the boss in your pack.
    Your music plays instead of the original music.
-
-NOTE: The pack name in the config must match the pack folder name.
-NOTE: The pack folder must be directly inside the folder "packs".
