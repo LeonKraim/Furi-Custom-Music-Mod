@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "name": "My Furi Music Pack",
+  "gain_db": 0.0,
+  "cues": [
+    {
+      "id": "Main_Song",
+      "file": "music/Main_Song.wav",
+      "loop": true,
+      "start_seconds": 0.0,
+      "bpm": 155.0,
+      "beats_per_bar": 4,
+      "gain_db": 0.0,
+      "intro_file": "music/Main_Song.intro.wav"
+    }
+  ],
+  "bindings": [
+    {
+      "trigger": "event:Play_Law_Music_Arena",
+      "cue": "Main_Song",
+      "transition": "next_bar",
+      "fade_seconds": 0.03,
+      "block_original": true
+    },
+    {
+      "trigger": "event:Stop_Law_Music_Arena",
+      "action": "stop",
+      "fade_seconds": 0.15,
+      "block_original": true
+    }
+  ]
+}
