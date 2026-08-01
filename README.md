@@ -12,34 +12,13 @@ Get the latest release here:
 
 https://github.com/LeonKraim/Furi-Custom-Music-Mod/releases
 
-Each release has 2 files:
-
-- FuriMusicMod.zip. The mod itself.
-  The install guide is below.
-- FuriMusicPackMaker.exe. The pack maker.
-  It has ffmpeg inside, so no separate ffmpeg install is needed.
 
 ## What You Need
 
 - The pack maker. It is one EXE file.
 - The game Furi on your computer.
   The pack maker reads the sound banks of the game to make the trigger list.
-- ffmpeg.exe. The pack maker uses it to export WAV files.
 - Your music track. It can be an MP3, OGG, WAV, or AIF file.
-
-NOTE: The pack maker finds ffmpeg automatically.
-If it cannot find ffmpeg, select the file with "Browse".
-NOTE: The pack maker finds the game folder automatically.
-The pack maker searches the folders above the EXE file for the file "Furi.exe".
-If the EXE is not inside or near the game folder, it cannot find the game.
-Then select the game folder with "Browse".
-
-## The Words in the Pack Maker
-
-- Trigger. It is one moment in the fight.
-  Examples: the start of the fight, a phase change, an attack sound.
-- Cue. It is one part of your song.
-- Pack. It is the folder with all the cues of one boss fight.
 
 ## Make a Pack
 
@@ -136,12 +115,14 @@ This helps you find the right trigger for each fight moment.
    STATE:Law_Path.Law_Path01
 
 
-## Notes
 
-- The mod reads the pack when the game starts.
-  If you change a pack, build it again and copy it again.
-- One pack is for one boss fight.
-  Make one pack for each boss.
+## The Words in the Pack Maker
+
+- Trigger. It is one moment in the fight.
+  Examples: the start of the fight, a phase change, an attack sound.
+- Cue. It is one part of your song.
+- Pack. It is the folder with all the cues of one boss fight.
+
 
 
 # Install the Furi Dynamic Music Mod
