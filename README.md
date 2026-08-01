@@ -45,18 +45,15 @@ If it cannot find the game, select the game folder with "Browse".
 
 2. Type the pack name in the field "Pack name".
 
-3. Select the source track.
-   Select "Browse" next to the field "Source track".
-
-   NOTE: Each cue can use its own song.
-   In the cue area, fill in the field "Source track (optional)".
-   Leave it empty to use the pack's source track.
-   This lets the fight switch between different songs at different moments.
-
-4. Select the boss in the field "Boss".
+3. Select the boss in the field "Boss".
    The trigger list shows the triggers of this boss.
 
-5. Select a trigger in the field "Trigger".
+4. Select a trigger in the field "Trigger".
+
+5. Select the song for this cue.
+   Select "Browse" next to the field "Source track".
+   Each cue has its own song.
+   This lets the fight switch between different songs at different moments.
 
 6. Type a cue id in the field "Cue id".
    The cue id is a short name for this part of the song.

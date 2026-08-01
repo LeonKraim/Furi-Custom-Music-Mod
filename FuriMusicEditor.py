@@ -292,7 +292,7 @@ class Editor(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Furi Dynamic Music Pack Editor")
-        self.minsize(1000, 640)
+        self.minsize(1100, 760)
         self.project_path = None
         self.cues = []
         self._bank_cache = {}
@@ -321,33 +321,26 @@ class Editor(tk.Tk):
         self._populate_triggers()
 
     def _build_ui(self):
-        top = ttk.Frame(self, padding=10)
+        top = ttk.Frame(self, padding=(16, 14))
         top.grid(row=0, column=0, sticky="ew")
         top.columnconfigure(1, weight=1)
         top.columnconfigure(3, weight=1)
         self._entry(top, 0, "Pack name", self.pack_name)
-        self._entry(top, 0, "Source track", self.source_file, button=self._pick_source, column=2)
-        ttk.Label(top, text="Boss").grid(row=1, column=0, sticky="w", padx=(0, 6), pady=4)
+        ttk.Label(top, text="Boss").grid(row=1, column=0, sticky="w", padx=(0, 10), pady=8)
         boss_box = ttk.Combobox(top, textvariable=self.boss, values=list(BOSSES), state="readonly")
-        boss_box.grid(row=1, column=1, sticky="ew", pady=4)
+        boss_box.grid(row=1, column=1, sticky="ew", pady=8)
         boss_box.bind("<<ComboboxSelected>>", lambda _event: self._populate_triggers())
         self._entry(top, 1, "ffmpeg path", self.ffmpeg, button=self._pick_ffmpeg, column=2)
-        self._entry(top, 2, "Game folder (auto-detected)", self.game_root, button=self._pick_game_root, column=2)
+        self._entry(top, 2, "Game folder (auto-detected)", self.game_root, button=self._pick_game_root, column=0)
 
         guide = ttk.Label(self, justify="left", anchor="w", wraplength=980,
-                          text="Start here: choose your boss and source song, then add one cue for each moment you want music for. "
-                               "The Trigger menu lists the boss's fight-start/retry/stop music events, every phase state (state:...), "
-                               "combat modes (melee duel vs ranged), stances and tension states, plus every attack sound (event:...) "
-                               "so you can react to specific moments. Start/End choose the piece of the source song; "
-                               "BPM and Beats/bar let transitions land on rhythm; Loop repeats a phase; Transition chooses when the next cue takes over. "
-                               "Fill in Intro start/end to play that part exactly once with a fade-in when the fight starts, "
-                               "then the rest of the song (from Intro end onward) loops forever. "
-                               "Each cue can use its own song: fill in 'Source track (optional)' in the cue area, "
-                               "so the fight can switch between different songs at different moments.")
-        guide.grid(row=1, column=0, sticky="ew", padx=14, pady=(0, 8))
+                          text="Pick a boss, then add one cue for each fight moment. "
+                               "Each cue plays its own song, set in 'Source track'. "
+                               "Open 'Trigger reference / help' for what each field and trigger means.")
+        guide.grid(row=1, column=0, sticky="ew", padx=18, pady=(0, 14))
 
-        edit = ttk.LabelFrame(self, text="Cue (one song section per game event or phase)", padding=10)
-        edit.grid(row=2, column=0, sticky="ew", padx=10)
+        edit = ttk.LabelFrame(self, text="Cue (one song section per game event or phase)", padding=(16, 14))
+        edit.grid(row=2, column=0, sticky="ew", padx=14)
         for column in range(8):
             edit.columnconfigure(column, weight=1 if column in (1, 3) else 0)
         self._labelled_combo(edit, 0, "Trigger", self.trigger, [])
@@ -356,27 +349,28 @@ class Editor(tk.Tk):
         self._labelled_entry(edit, 0, "End (s)", self.end, column=6)
         self._labelled_entry(edit, 2, "BPM", self.bpm)
         self._labelled_entry(edit, 2, "Beats/bar", self.beats, column=2)
-        ttk.Checkbutton(edit, text="Loop this exported cue", variable=self.loop).grid(row=3, column=4, columnspan=1, sticky="w", pady=(0, 4))
-        ttk.Label(edit, text="Source track (optional)").grid(row=3, column=0, sticky="w", padx=(0, 6), pady=(0, 4))
-        ttk.Entry(edit, textvariable=self.cue_source).grid(row=3, column=1, columnspan=3, sticky="ew", padx=(0, 12), pady=(0, 4))
-        ttk.Button(edit, text="Browse", command=self._pick_cue_source).grid(row=3, column=5, sticky="w", pady=(0, 4))
         ttk.Label(edit, text="Transition (when it switches)").grid(row=2, column=6, sticky="w")
-        ttk.Combobox(edit, textvariable=self.transition, state="readonly", values=["immediate", "next_beat", "next_bar"]).grid(row=3, column=6, columnspan=2, sticky="ew", pady=(0, 4))
-        self._labelled_entry(edit, 4, "Intro start (s)", self.intro_start)
-        self._labelled_entry(edit, 4, "Intro end (s)", self.intro_end, column=2)
-        self._labelled_entry(edit, 4, "Fade-in (s)", self.fade_in, column=4)
-        ttk.Checkbutton(edit, text="Block original sound", variable=self.block_original).grid(row=5, column=6, columnspan=2, sticky="w", pady=(0, 4))
+        ttk.Checkbutton(edit, text="Loop this exported cue", variable=self.loop).grid(row=3, column=4, columnspan=2, sticky="w", pady=(0, 8))
+        ttk.Combobox(edit, textvariable=self.transition, state="readonly", values=["immediate", "next_beat", "next_bar"]).grid(row=3, column=6, columnspan=2, sticky="ew", padx=(0, 20), pady=(0, 8))
+        ttk.Label(edit, text="Source track").grid(row=4, column=0, sticky="w", padx=(0, 10), pady=(8, 8))
+        ttk.Entry(edit, textvariable=self.cue_source).grid(row=4, column=1, columnspan=5, sticky="ew", padx=(0, 20), pady=(8, 8))
+        ttk.Button(edit, text="Browse", command=self._pick_cue_source).grid(row=4, column=6, sticky="w", pady=(8, 8))
+        self._labelled_entry(edit, 5, "Intro start (s)", self.intro_start)
+        self._labelled_entry(edit, 5, "Intro end (s)", self.intro_end, column=2)
+        self._labelled_entry(edit, 5, "Fade-in (s)", self.fade_in, column=4)
+        ttk.Checkbutton(edit, text="Block original sound", variable=self.block_original).grid(row=6, column=6, columnspan=2, sticky="w", pady=(0, 8))
         buttons = ttk.Frame(edit)
         ttk.Label(edit, text="Intro start/end play that part once (with a fade-in) when the fight starts, then the rest of the song (from Intro end onward) loops forever. "
-                             "Leave them empty to loop only the Start/End section. Tip: use next_bar when phase music shares the same tempo; use immediate for intros or endings.", foreground="#555555").grid(row=6, column=0, columnspan=8, sticky="w", pady=(2, 0))
-        buttons.grid(row=7, column=0, columnspan=8, sticky="e", pady=(5, 0))
+                             "Leave them empty to loop only the Start/End section. Tip: use next_bar when phase music shares the same tempo; use immediate for intros or endings.", foreground="#555555").grid(row=7, column=0, columnspan=8, sticky="w", pady=(6, 0))
+        buttons.grid(row=8, column=0, columnspan=8, sticky="e", pady=(10, 0))
         ttk.Button(buttons, text="Add cue", command=self._add_cue).pack(side="left", padx=4)
         ttk.Button(buttons, text="Update selected", command=self._update_cue).pack(side="left", padx=4)
         ttk.Button(buttons, text="Remove selected", command=self._remove_cue).pack(side="left", padx=4)
 
-        table_frame = ttk.Frame(self, padding=10)
-        table_frame.grid(row=3, column=0, sticky="nsew")
-        self.rowconfigure(3, weight=1)
+        ttk.Separator(self, orient="horizontal").grid(row=3, column=0, sticky="ew", padx=16, pady=(2, 0))
+        table_frame = ttk.Frame(self, padding=(16, 14))
+        table_frame.grid(row=4, column=0, sticky="nsew")
+        self.rowconfigure(4, weight=1)
         self.columnconfigure(0, weight=1)
         columns = ("trigger", "cue", "source", "start", "end", "loop", "bpm", "transition", "intro", "orig")
         self.table = ttk.Treeview(table_frame, columns=columns, show="headings", selectmode="browse")
@@ -392,8 +386,8 @@ class Editor(tk.Tk):
         self.table.configure(yscrollcommand=scrollbar.set)
         self.table.bind("<<TreeviewSelect>>", self._select_cue)
 
-        bottom = ttk.Frame(self, padding=10)
-        bottom.grid(row=4, column=0, sticky="ew")
+        bottom = ttk.Frame(self, padding=(16, 14))
+        bottom.grid(row=5, column=0, sticky="ew")
         ttk.Button(bottom, text="New project", command=self._new_project).pack(side="left", padx=4)
         ttk.Button(bottom, text="Open project", command=self._open_project).pack(side="left", padx=4)
         ttk.Button(bottom, text="Save project", command=self._save_project).pack(side="left", padx=4)
@@ -456,24 +450,19 @@ class Editor(tk.Tk):
         window.bind("<Configure>", _resize)
 
     def _entry(self, parent, row, label, variable, button=None, column=0):
-        ttk.Label(parent, text=label).grid(row=row, column=column, sticky="w", padx=(0, 6), pady=4)
-        ttk.Entry(parent, textvariable=variable).grid(row=row, column=column + 1, sticky="ew", pady=4)
+        ttk.Label(parent, text=label).grid(row=row, column=column, sticky="w", padx=(14 if column else 0, 10), pady=8)
+        ttk.Entry(parent, textvariable=variable).grid(row=row, column=column + 1, sticky="ew", pady=8)
         if button:
-            ttk.Button(parent, text="Browse", command=button).grid(row=row, column=column + 2, padx=(6, 0), pady=4)
+            ttk.Button(parent, text="Browse", command=button).grid(row=row, column=column + 2, padx=(8, 0), pady=8)
 
     def _labelled_entry(self, parent, row, label, variable, column=0):
         ttk.Label(parent, text=label).grid(row=row, column=column, sticky="w")
-        ttk.Entry(parent, textvariable=variable).grid(row=row + 1, column=column, columnspan=2, sticky="ew", padx=(0, 12), pady=(0, 4))
+        ttk.Entry(parent, textvariable=variable).grid(row=row + 1, column=column, columnspan=2, sticky="ew", padx=(0, 20), pady=(0, 8))
 
     def _labelled_combo(self, parent, row, label, variable, values, column=0):
         ttk.Label(parent, text=label).grid(row=row, column=column, sticky="w")
         self.trigger_box = ttk.Combobox(parent, textvariable=variable, values=values, state="readonly")
-        self.trigger_box.grid(row=row + 1, column=column, columnspan=2, sticky="ew", padx=(0, 12), pady=(0, 4))
-
-    def _pick_source(self):
-        selected = filedialog.askopenfilename(filetypes=[("Audio", "*.mp3 *.ogg *.wav *.aif *.aiff"), ("All files", "*.*")])
-        if selected:
-            self.source_file.set(selected)
+        self.trigger_box.grid(row=row + 1, column=column, columnspan=2, sticky="ew", padx=(0, 20), pady=(0, 8))
 
     def _pick_cue_source(self):
         selected = filedialog.askopenfilename(filetypes=[("Audio", "*.mp3 *.ogg *.wav *.aif *.aiff"), ("All files", "*.*")])
@@ -580,6 +569,8 @@ class Editor(tk.Tk):
             raise ValueError("Start/end/BPM must be numbers and beats per bar must be an integer.")
         if not self.trigger.get() or not self.cue_id.get().strip():
             raise ValueError("Choose a trigger and provide a cue id.")
+        if not self.cue_source.get().strip():
+            raise ValueError("Choose a source track for this cue.")
         if start < 0 or end <= start or bpm <= 0 or beats < 1:
             raise ValueError("Use end > start, BPM > 0, and at least one beat per bar.")
         intro = None
@@ -699,7 +690,7 @@ class Editor(tk.Tk):
             music_dir = pack_dir / "music"; music_dir.mkdir(parents=True, exist_ok=True)
             manifest_cues, bindings = [], []
             for cue in self.cues:
-                cue_source = Path(cue.get("source") or self.source_file.get())
+                cue_source = Path(cue["source"])
                 if not cue_source.is_file():
                     raise RuntimeError("Source track not found for cue '" + cue["cue"] + "': " + str(cue_source))
                 output = music_dir / (cue["cue"] + ".wav")
