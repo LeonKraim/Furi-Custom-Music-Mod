@@ -22,13 +22,11 @@ It replaces the original music of the boss fights with your own music.
 
 ### The Files in This Repository
 
-- "README-INSTALL.md". It explains how to install the mod.
-- "README-MUSIC-PACK-MAKER.md". It explains how to use the pack maker.
-- "FuriMusicEditor.py". It is the source code of the pack maker.
-- The folder "SourceCode". It has the source code of the mod.
-  The file "SourceCode\README.md" explains how to build the mod.
-- The folder "ExamplePack". It is an example of a music pack.
-- The folder "packs". It has the music packs you make.
+- "FuriDynamicMusic.cs". It is the source code of the mod.
+- "FuriMusicEditor.py". It is the source code of the music pack maker.
+- "build.ps1". It builds the mod.
+- "LICENSE.md". It is the license.
+- The folder "Example Pack". It is an example of a music pack.
 
 ### Requirements
 
