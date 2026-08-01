@@ -87,16 +87,22 @@ Then select the game folder with "Browse".
     The rest of the song is from the intro end to the end of the source track.
     To use only the "Start/End" loop, leave the intro fields empty.
 
-13. Select "Add cue".
+13. Optional: select a cue in the field "Requires cue".
+    The cue fires only if the selected cue already played in this fight.
+    This makes sequences: one fight moment plays only after another fight moment.
+    Example: a phase change to the second phase only happens after the intro played.
+    The list resets when the fight starts again.
+
+14. Select "Add cue".
     The cue appears in the table.
 
-14. Repeat steps 5 to 13 for each fight moment.
+15. Repeat steps 5 to 14 for each fight moment.
 
-15. Select "Build pack".
+16. Select "Build pack".
     The pack maker exports the WAV files.
     This can take some time.
 
-16. The pack is ready.
+17. The pack is ready.
     The pack folder is in this folder:
 
     BepInEx\plugins\FuriDynamicMusic\packs\

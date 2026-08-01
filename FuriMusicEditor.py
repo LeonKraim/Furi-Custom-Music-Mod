@@ -319,9 +319,11 @@ class Editor(tk.Tk):
         self.intro_end = tk.StringVar(value="")
         self.fade_in = tk.StringVar(value="2")
         self.cue_source = tk.StringVar()
+        self.requires_cue = tk.StringVar()
 
         self._build_ui()
         self._populate_triggers()
+        self._refresh_requires_options()
 
     def _build_ui(self):
         top = ttk.Frame(self, padding=(16, 14))
@@ -358,14 +360,18 @@ class Editor(tk.Tk):
         ttk.Label(edit, text="Source track").grid(row=4, column=0, sticky="w", padx=(0, 10), pady=(8, 8))
         ttk.Entry(edit, textvariable=self.cue_source).grid(row=4, column=1, columnspan=5, sticky="ew", padx=(0, 20), pady=(8, 8))
         ttk.Button(edit, text="Browse", command=self._pick_cue_source).grid(row=4, column=6, sticky="w", pady=(8, 8))
-        self._labelled_entry(edit, 5, "Intro start (s)", self.intro_start)
-        self._labelled_entry(edit, 5, "Intro end (s)", self.intro_end, column=2)
-        self._labelled_entry(edit, 5, "Fade-in (s)", self.fade_in, column=4)
-        ttk.Checkbutton(edit, text="Block original sound", variable=self.block_original).grid(row=6, column=6, columnspan=2, sticky="w", pady=(0, 8))
+        ttk.Label(edit, text="Requires cue (fires only if this cue played first)").grid(row=5, column=0, sticky="w", padx=(0, 10), pady=(8, 8))
+        self.requires_box = ttk.Combobox(edit, textvariable=self.requires_cue, state="readonly")
+        self.requires_box.grid(row=5, column=1, columnspan=3, sticky="ew", padx=(0, 20), pady=(8, 8))
+        self._labelled_entry(edit, 6, "Intro start (s)", self.intro_start)
+        self._labelled_entry(edit, 6, "Intro end (s)", self.intro_end, column=2)
+        self._labelled_entry(edit, 6, "Fade-in (s)", self.fade_in, column=4)
+        ttk.Checkbutton(edit, text="Block original sound", variable=self.block_original).grid(row=7, column=6, columnspan=2, sticky="w", pady=(0, 8))
         buttons = ttk.Frame(edit)
         ttk.Label(edit, text="Intro start/end play that part once (with a fade-in) when the fight starts, then the rest of the song (from Intro end onward) loops forever. "
-                             "Leave them empty to loop only the Start/End section. Tip: use next_bar when phase music shares the same tempo; use immediate for intros or endings.", foreground="#555555").grid(row=7, column=0, columnspan=8, sticky="w", pady=(6, 0))
-        buttons.grid(row=8, column=0, columnspan=8, sticky="e", pady=(10, 0))
+                             "Leave them empty to loop only the Start/End section. 'Requires cue' fires this cue only after the chosen cue already played this fight. "
+                             "Tip: use next_bar when phase music shares the same tempo; use immediate for intros or endings.", foreground="#555555").grid(row=8, column=0, columnspan=8, sticky="w", pady=(6, 0))
+        buttons.grid(row=9, column=0, columnspan=8, sticky="e", pady=(10, 0))
         ttk.Button(buttons, text="Add cue", command=self._add_cue).pack(side="left", padx=4)
         ttk.Button(buttons, text="Update selected", command=self._update_cue).pack(side="left", padx=4)
         ttk.Button(buttons, text="Remove selected", command=self._remove_cue).pack(side="left", padx=4)
@@ -375,10 +381,10 @@ class Editor(tk.Tk):
         table_frame.grid(row=4, column=0, sticky="nsew")
         self.rowconfigure(4, weight=1)
         self.columnconfigure(0, weight=1)
-        columns = ("trigger", "cue", "source", "start", "end", "loop", "bpm", "transition", "intro", "orig")
+        columns = ("trigger", "cue", "source", "req", "start", "end", "loop", "bpm", "transition", "intro", "orig")
         self.table = ttk.Treeview(table_frame, columns=columns, show="headings", selectmode="browse")
         for column, heading, width in [
-            ("trigger", "Game trigger", 260), ("cue", "Cue", 130), ("source", "Source", 90), ("start", "Start", 60), ("end", "End", 60),
+            ("trigger", "Game trigger", 260), ("cue", "Cue", 130), ("source", "Source", 90), ("req", "Req", 70), ("start", "Start", 60), ("end", "End", 60),
             ("loop", "Loop", 50), ("bpm", "BPM", 50), ("transition", "Transition", 90), ("intro", "Intro", 80), ("orig", "Orig", 55),
         ]:
             self.table.heading(column, text=heading)
@@ -588,13 +594,23 @@ class Editor(tk.Tk):
             if intro_start < 0 or intro_end <= intro_start or fade < 0:
                 raise ValueError("Use intro end > intro start, and fade-in >= 0.")
             intro = {"start": intro_start, "end": intro_end, "fade": fade}
+        requires = self.requires_cue.get()
+        if requires == "(none)" or not requires.strip():
+            requires = ""
         return {
             "trigger": self.trigger.get(), "cue": safe_name(self.cue_id.get()), "start": start, "end": end,
             "loop": self.loop.get(), "bpm": bpm, "beats_per_bar": beats, "transition": self.transition.get(),
             "block_original": self.block_original.get(),
             "source": self.cue_source.get().strip(),
+            "requires_cue": requires,
             "intro": intro,
         }
+
+    def _refresh_requires_options(self):
+        values = ["(none)"] + [c["cue"] for c in self.cues]
+        self.requires_box["values"] = values
+        if self.requires_cue.get() not in values:
+            self.requires_cue.set("(none)")
 
     def _add_cue(self):
         try:
@@ -606,7 +622,7 @@ class Editor(tk.Tk):
         if any(item["cue"] == cue["cue"] for item in self.cues):
             messagebox.showerror("Duplicate cue id", "Cue ids must be unique."); return
         self.cues.append(cue)
-        self._refresh_table()
+        self._refresh_table(); self._refresh_requires_options()
 
     def _selected_index(self):
         selected = self.table.selection()
@@ -620,12 +636,12 @@ class Editor(tk.Tk):
             self.cues[index] = self._read_fields()
         except ValueError as error:
             messagebox.showerror("Invalid cue", str(error)); return
-        self._refresh_table()
+        self._refresh_table(); self._refresh_requires_options()
 
     def _remove_cue(self):
         index = self._selected_index()
         if index is not None:
-            self.cues.pop(index); self._refresh_table()
+            self.cues.pop(index); self._refresh_table(); self._refresh_requires_options()
 
     def _select_cue(self, _event):
         index = self._selected_index()
@@ -637,6 +653,7 @@ class Editor(tk.Tk):
         self.loop.set(cue["loop"]); self.transition.set(cue["transition"])
         self.block_original.set(cue.get("block_original", True))
         self.cue_source.set(cue.get("source", ""))
+        self.requires_cue.set(cue.get("requires_cue", "") or "(none)")
         intro = cue.get("intro")
         if intro:
             self.intro_start.set(str(intro.get("start", 0))); self.intro_end.set(str(intro.get("end", 0))); self.fade_in.set(str(intro.get("fade", 0)))
@@ -646,13 +663,13 @@ class Editor(tk.Tk):
     def _refresh_table(self):
         self.table.delete(*self.table.get_children())
         for index, cue in enumerate(self.cues):
-            self.table.insert("", "end", iid=str(index), values=(cue["trigger"], cue["cue"], Path(cue.get("source", "")).name if cue.get("source") else "main", cue["start"], cue["end"], "yes" if cue["loop"] else "no", cue["bpm"], cue["transition"], "once->loop" if cue.get("intro") else "no", "stop" if cue.get("block_original", True) else "keep"))
+            self.table.insert("", "end", iid=str(index), values=(cue["trigger"], cue["cue"], Path(cue.get("source", "")).name if cue.get("source") else "main", cue.get("requires_cue", "") or "", cue["start"], cue["end"], "yes" if cue["loop"] else "no", cue["bpm"], cue["transition"], "once->loop" if cue.get("intro") else "no", "stop" if cue.get("block_original", True) else "keep"))
 
     def _project_data(self):
         return {"version": 1, "name": self.pack_name.get(), "source_file": self.source_file.get(), "boss": self.boss.get(), "cues": self.cues}
 
     def _new_project(self):
-        self.project_path = None; self.cues = []; self.pack_name.set("My Furi Music Pack"); self.source_file.set(""); self.cue_source.set(""); self.intro_start.set(""); self.intro_end.set(""); self._refresh_table()
+        self.project_path = None; self.cues = []; self.pack_name.set("My Furi Music Pack"); self.source_file.set(""); self.cue_source.set(""); self.requires_cue.set("(none)"); self.intro_start.set(""); self.intro_end.set(""); self._refresh_table(); self._refresh_requires_options()
 
     def _open_project(self):
         selected = filedialog.askopenfilename(filetypes=[("Furi music project", "*.furi-music.json"), ("JSON", "*.json")])
@@ -661,7 +678,7 @@ class Editor(tk.Tk):
             with open(selected, "r", encoding="utf-8") as handle: data = json.load(handle)
             if data.get("version") != 1: raise ValueError("This is not a version 1 Furi music project.")
             self.project_path = Path(selected); self.pack_name.set(data["name"]); self.source_file.set(data["source_file"])
-            self.boss.set(data["boss"]); self._populate_triggers(); self.cues = data.get("cues", []); self._refresh_table()
+            self.boss.set(data["boss"]); self._populate_triggers(); self.cues = data.get("cues", []); self._refresh_table(); self._refresh_requires_options()
         except (OSError, ValueError, KeyError, json.JSONDecodeError) as error:
             messagebox.showerror("Could not open project", str(error))
 
@@ -721,7 +738,10 @@ class Editor(tk.Tk):
                         raise RuntimeError("ffmpeg could not export intro for " + cue["cue"] + ":\n" + completed.stderr[-1000:])
                     manifest_cue["intro_file"] = "music/" + intro_out.name
                 manifest_cues.append(manifest_cue)
-                bindings.append({"trigger": cue["trigger"], "cue": cue["cue"], "transition": cue["transition"], "fade_seconds": 0.03, "block_original": bool(cue.get("block_original", True))})
+                binding = {"trigger": cue["trigger"], "cue": cue["cue"], "transition": cue["transition"], "fade_seconds": 0.03, "block_original": bool(cue.get("block_original", True))}
+                if cue.get("requires_cue"):
+                    binding["requires_cue"] = cue["requires_cue"]
+                bindings.append(binding)
             boss = BOSSES[self.boss.get()]
             bindings.append({"trigger": "event:" + boss["stop"], "action": "stop", "fade_seconds": 0.15, "block_original": True})
             manifest = {"schema_version": 1, "name": self.pack_name.get(), "gain_db": 0.0, "cues": manifest_cues, "bindings": bindings}
