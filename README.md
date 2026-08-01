@@ -78,16 +78,21 @@ https://github.com/LeonKraim/Furi-Custom-Music-Mod/releases
     The mod tracks the triggers from the start of the fight.
     The list resets when the fight starts again.
 
-15. Select "Add cue".
+15. Optional: select a trigger in the field "Requires NOT trigger".
+    The cue never fires after this trigger already fired in the fight.
+    Use it for one-time moments: the cue plays until the trigger happens.
+    Example: an intro cue that stops playing once the second phase starts.
+
+16. Select "Add cue".
     The cue appears in the table.
 
-16. Repeat steps 5 to 15 for each fight moment.
+17. Repeat steps 5 to 16 for each fight moment.
 
-17. Select "Build pack".
+18. Select "Build pack".
     The pack maker exports the WAV files.
     This can take some time.
 
-18. The pack is ready.
+19. The pack is ready.
     The pack folder is in this folder:
 
     BepInEx\plugins\FuriDynamicMusic\packs\

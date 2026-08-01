@@ -322,6 +322,7 @@ class Editor(tk.Tk):
         self.fade_in = tk.StringVar(value="2")
         self.cue_source = tk.StringVar()
         self.requires_trigger = tk.StringVar()
+        self.requires_not_trigger = tk.StringVar()
         self._trigger_values = []
 
         self._build_ui()
@@ -372,13 +373,17 @@ class Editor(tk.Tk):
         ttk.Label(edit, text="Requires trigger (fires only after this trigger fired)").grid(row=5, column=0, sticky="w", padx=(0, 10), pady=(8, 8))
         self.requires_box = ttk.Combobox(edit, textvariable=self.requires_trigger, state="readonly")
         self.requires_box.grid(row=5, column=1, columnspan=3, sticky="ew", padx=(0, 20), pady=(8, 8))
+        ttk.Label(edit, text="Requires NOT trigger (never after this fired)").grid(row=5, column=4, sticky="w", padx=(0, 10), pady=(8, 8))
+        self.not_box = ttk.Combobox(edit, textvariable=self.requires_not_trigger, state="readonly")
+        self.not_box.grid(row=5, column=5, columnspan=3, sticky="ew", pady=(8, 8))
         self._labelled_entry(edit, 6, "Intro start (s)", self.intro_start)
         self._labelled_entry(edit, 6, "Intro end (s)", self.intro_end, column=2)
         self._labelled_entry(edit, 6, "Fade-in (s)", self.fade_in, column=4)
         ttk.Checkbutton(edit, text="Block original sound", variable=self.block_original).grid(row=7, column=6, columnspan=2, sticky="w", pady=(0, 8))
         buttons = ttk.Frame(edit)
         ttk.Label(edit, text="Intro start/end play that part once (with a fade-in) when the fight starts, then the rest of the song (from Intro end onward) loops forever. "
-                             "Leave them empty to loop only the Start/End section. 'Requires trigger' fires this cue only after that trigger already fired in this fight. "
+                             "Leave them empty to loop only the Start/End section. 'Requires trigger' fires this cue only after that trigger already fired; "
+                             "'Requires NOT trigger' blocks this cue once that trigger fired. "
                              "Tip: use next_bar when phase music shares the same tempo; use immediate for intros or endings.", foreground="#555555").grid(row=8, column=0, columnspan=8, sticky="w", pady=(6, 0))
         buttons.grid(row=9, column=0, columnspan=8, sticky="e", pady=(10, 0))
         ttk.Button(buttons, text="Add cue", command=self._add_cue).pack(side="left", padx=4)
@@ -390,10 +395,10 @@ class Editor(tk.Tk):
         table_frame.grid(row=4, column=0, sticky="nsew")
         self.rowconfigure(4, weight=1)
         self.columnconfigure(0, weight=1)
-        columns = ("trigger", "cue", "source", "req", "start", "end", "loop", "bpm", "transition", "intro", "orig")
+        columns = ("trigger", "cue", "source", "req", "not", "start", "end", "loop", "bpm", "transition", "intro", "orig")
         self.table = ttk.Treeview(table_frame, columns=columns, show="headings", selectmode="browse")
         for column, heading, width in [
-            ("trigger", "Game trigger", 260), ("cue", "Cue", 130), ("source", "Source", 90), ("req", "Req", 160), ("start", "Start", 60), ("end", "End", 60),
+            ("trigger", "Game trigger", 260), ("cue", "Cue", 130), ("source", "Source", 90), ("req", "Req", 160), ("not", "Not", 160), ("start", "Start", 60), ("end", "End", 60),
             ("loop", "Loop", 50), ("bpm", "BPM", 50), ("transition", "Transition", 90), ("intro", "Intro", 80), ("orig", "Orig", 55),
         ]:
             self.table.heading(column, text=heading)
@@ -608,20 +613,27 @@ class Editor(tk.Tk):
         requires = self.requires_trigger.get()
         if requires == "(none)" or not requires.strip():
             requires = ""
+        requires_not = self.requires_not_trigger.get()
+        if requires_not == "(none)" or not requires_not.strip():
+            requires_not = ""
         return {
             "trigger": self.trigger.get(), "cue": safe_name(self.cue_id.get()), "start": start, "end": end,
             "loop": self.loop.get(), "bpm": bpm, "beats_per_bar": beats, "transition": self.transition.get(),
             "block_original": self.block_original.get(),
             "source": self.cue_source.get().strip(),
             "requires_trigger": requires,
+            "requires_not_trigger": requires_not,
             "intro": intro,
         }
 
     def _refresh_requires_options(self):
         values = ["(none)"] + list(self._trigger_values)
         self.requires_box["values"] = values
+        self.not_box["values"] = values
         if self.requires_trigger.get() not in values:
             self.requires_trigger.set("(none)")
+        if self.requires_not_trigger.get() not in values:
+            self.requires_not_trigger.set("(none)")
 
     def _add_cue(self):
         try:
@@ -673,6 +685,7 @@ class Editor(tk.Tk):
         self.block_original.set(cue.get("block_original", True))
         self.cue_source.set(cue.get("source", ""))
         self.requires_trigger.set(cue.get("requires_trigger", "") or "(none)")
+        self.requires_not_trigger.set(cue.get("requires_not_trigger", "") or "(none)")
         intro = cue.get("intro")
         if intro:
             self.intro_start.set(str(intro.get("start", 0))); self.intro_end.set(str(intro.get("end", 0))); self.fade_in.set(str(intro.get("fade", 0)))
@@ -682,7 +695,7 @@ class Editor(tk.Tk):
     def _refresh_table(self):
         self.table.delete(*self.table.get_children())
         for index, cue in enumerate(self.cues):
-            self.table.insert("", "end", iid=str(index), values=(cue["trigger"], cue["cue"], Path(cue.get("source", "")).name if cue.get("source") else "main", cue.get("requires_trigger", "") or "", cue["start"], cue["end"], "yes" if cue["loop"] else "no", cue["bpm"], cue["transition"], "once->loop" if cue.get("intro") else "no", "stop" if cue.get("block_original", True) else "keep"))
+            self.table.insert("", "end", iid=str(index), values=(cue["trigger"], cue["cue"], Path(cue.get("source", "")).name if cue.get("source") else "main", cue.get("requires_trigger", "") or "", cue.get("requires_not_trigger", "") or "", cue["start"], cue["end"], "yes" if cue["loop"] else "no", cue["bpm"], cue["transition"], "once->loop" if cue.get("intro") else "no", "stop" if cue.get("block_original", True) else "keep"))
 
     def _project_data(self):
         return {"version": 2, "name": self.pack_name.get(), "source_file": self.source_file.get(), "fights": self.fights}
@@ -712,7 +725,7 @@ class Editor(tk.Tk):
         self.bpm.set("120"); self.beats.set("4")
         self.loop.set(True); self.transition.set("next_bar")
         self.block_original.set(True)
-        self.cue_source.set(""); self.requires_trigger.set("(none)")
+        self.cue_source.set(""); self.requires_trigger.set("(none)"); self.requires_not_trigger.set("(none)")
         self.intro_start.set(""); self.intro_end.set(""); self.fade_in.set("2")
 
     def _add_fight(self):
@@ -824,6 +837,8 @@ class Editor(tk.Tk):
                         binding["start"] = True
                     if cue.get("requires_trigger"):
                         binding["requires_trigger"] = cue["requires_trigger"]
+                    if cue.get("requires_not_trigger"):
+                        binding["requires_not_trigger"] = cue["requires_not_trigger"]
                     bindings.append(binding)
                 bindings.append({"trigger": "event:" + boss["stop"], "action": "stop", "fade_seconds": 0.15, "block_original": True})
                 manifest_fights.append({"boss": fight["boss"], "cues": manifest_cues, "bindings": bindings})

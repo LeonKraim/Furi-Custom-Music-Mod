@@ -21,7 +21,7 @@ namespace FuriDynamicMusic
     {
         public const string PluginGuid = "io.github.furi-modding.dynamicmusic";
         public const string PluginName = "Furi Native Music Pack";
-        public const string PluginVersion = "4.1.7";
+        public const string PluginVersion = "4.1.8";
 
         internal static DynamicMusicPlugin Instance;
         internal new static BepInEx.Logging.ManualLogSource Logger;
@@ -485,6 +485,12 @@ namespace FuriDynamicMusic
                     return;
                 }
 
+                if (b.RequiresNotTrigger.Length > 0 && HasFired(b.RequiresNotTrigger))
+                {
+                    Logger.LogInfo("Cue '" + cue.Id + "' is blocked by trigger '" + b.RequiresNotTrigger + "' (already fired); skipping.");
+                    return;
+                }
+
                 Logger.LogInfo("Play trigger fired (event " + eventId + ") -> cue '" + cue.Id + "'");
                 BlockOriginalMusic(eventId, go);
                 PlayCue(cue);
@@ -524,6 +530,12 @@ namespace FuriDynamicMusic
                 if (b.RequiresTrigger.Length > 0 && !HasFired(b.RequiresTrigger))
                 {
                     Logger.LogInfo("Cue '" + cue.Id + "' requires trigger '" + b.RequiresTrigger + "' first; skipping.");
+                    return;
+                }
+
+                if (b.RequiresNotTrigger.Length > 0 && HasFired(b.RequiresNotTrigger))
+                {
+                    Logger.LogInfo("Cue '" + cue.Id + "' is blocked by trigger '" + b.RequiresNotTrigger + "' (already fired); skipping.");
                     return;
                 }
 
@@ -681,6 +693,7 @@ namespace FuriDynamicMusic
         public string CueId;
         public string Action = "play";
         public string RequiresTrigger = "";
+        public string RequiresNotTrigger = "";
         public bool Start;
         public bool BlockOriginal = true;
         public float FadeSeconds;
@@ -813,6 +826,7 @@ namespace FuriDynamicMusic
                     binding.CueId = GetStr(bObj, "cue", "");
                     binding.Action = GetStr(bObj, "action", "play");
                     binding.RequiresTrigger = GetStr(bObj, "requires_trigger", "");
+                    binding.RequiresNotTrigger = GetStr(bObj, "requires_not_trigger", "");
                     binding.Start = GetBool(bObj, "start", false);
                     binding.BlockOriginal = GetBool(bObj, "block_original", true);
                     binding.FadeSeconds = GetFlt(bObj, "fade_seconds", 0f);
